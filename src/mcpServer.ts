@@ -2,6 +2,16 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { LIST_THEMES_SCHEMA, REGISTER_THEME_SCHEMA, REMOVE_THEME_SCHEMA } from "./theme.js";
 import { PUBLISH_ARTICLE_SCHEMA, publishArticle } from "./publish.js";
+import {
+    DELETE_PUBLISH_SCHEMA,
+    GET_PUBLISH_STATUS_SCHEMA,
+    LIST_DRAFTS_SCHEMA,
+    PUBLISH_DRAFT_SCHEMA,
+    deletePublish,
+    getPublishStatus,
+    listDrafts,
+    publishDraft,
+} from "./freepublish.js";
 import pkg from "../package.json" with { type: "json" };
 import { buildMcpResponse, globalStates } from "./utils.js";
 import { addTheme, listThemes, removeTheme } from "@wenyan-md/core/wrapper";
@@ -31,7 +41,16 @@ export function createServer(): Server {
      */
     server.setRequestHandler(ListToolsRequestSchema, async () => {
         return {
-            tools: [PUBLISH_ARTICLE_SCHEMA, LIST_THEMES_SCHEMA, REGISTER_THEME_SCHEMA, REMOVE_THEME_SCHEMA],
+            tools: [
+                PUBLISH_ARTICLE_SCHEMA,
+                LIST_THEMES_SCHEMA,
+                REGISTER_THEME_SCHEMA,
+                REMOVE_THEME_SCHEMA,
+                LIST_DRAFTS_SCHEMA,
+                PUBLISH_DRAFT_SCHEMA,
+                GET_PUBLISH_STATUS_SCHEMA,
+                DELETE_PUBLISH_SCHEMA,
+            ],
         };
     });
 
@@ -81,6 +100,34 @@ export function createServer(): Server {
                 const path = String(request.params.arguments?.path || "");
                 await addTheme(name, path);
                 return buildMcpResponse(`Theme "${name}" has been added successfully.`);
+            } else if (request.params.name === "list_drafts") {
+                const args = request.params.arguments || {};
+                const offset = Number(args.offset || 0);
+                const count = Number(args.count || 10);
+                const appId = String(args.app_id || "");
+                return await listDrafts(offset, count, appId || undefined);
+            } else if (request.params.name === "publish_draft") {
+                const mediaId = String(request.params.arguments?.media_id || "");
+                if (!mediaId) {
+                    throw new Error("Missing required argument: media_id");
+                }
+                const appId = String(request.params.arguments?.app_id || "");
+                return await publishDraft(mediaId, appId || undefined);
+            } else if (request.params.name === "get_publish_status") {
+                const publishId = String(request.params.arguments?.publish_id || "");
+                if (!publishId) {
+                    throw new Error("Missing required argument: publish_id");
+                }
+                const appId = String(request.params.arguments?.app_id || "");
+                return await getPublishStatus(publishId, appId || undefined);
+            } else if (request.params.name === "delete_publish") {
+                const publishId = String(request.params.arguments?.publish_id || "");
+                const articleId = String(request.params.arguments?.article_id || "");
+                if (!publishId || !articleId) {
+                    throw new Error("Missing required arguments: publish_id, article_id");
+                }
+                const appId = String(request.params.arguments?.app_id || "");
+                return await deletePublish(publishId, articleId, appId || undefined);
             } else if (request.params.name === "remove_theme") {
                 const name = String(request.params.arguments?.name || "");
                 await removeTheme(name);
