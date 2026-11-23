@@ -58,6 +58,7 @@
   - 渲染 Markdown
   - 主题管理
   - 发布草稿
+  - 群发消息（按标签/全员/按 OpenID，含预览、状态查询、删除、速度控制）
 
 ## 快速开始
 
@@ -150,6 +151,30 @@ AI回复：
 
 是否需要我帮您生成一篇发布文案或封面建议？ 😊
 ```
+
+## 群发消息
+
+> [!IMPORTANT]
+>
+> 群发接口仅对已认证的订阅号/服务号（含企业认证）开放。全员群发（`is_to_all`）每个自然月最多 4 次。建议先使用 `mass_preview` 预览确认效果，再正式群发。
+
+支持的 MCP 工具：
+
+| 工具 | 对应接口 | 说明 |
+| ---- | -------- | ---- |
+| `mass_send_all` | `/cgi-bin/message/mass/sendall` | 按用户标签或全员群发，支持 text/mpnews/image/voice/video/wxcard 消息类型 |
+| `mass_send` | `/cgi-bin/message/mass/send` | 按 OpenID 列表群发（最多 10000 个） |
+| `mass_preview` | `/cgi-bin/message/mass/preview` | 群发预览，发给指定用户，不占用群发次数 |
+| `mass_get_status` | `/cgi-bin/message/mass/get` | 查询群发消息发送状态 |
+| `mass_delete` | `/cgi-bin/message/mass/delete` | 删除群发，粉丝将不再看到该消息 |
+| `mass_speed_get` | `/cgi-bin/message/mass/speed/get` | 查询群发速度 |
+| `mass_speed_set` | `/cgi-bin/message/mass/speed/set` | 调整群发速度（0-4，0 最快，4 最慢） |
+
+对AI说：
+
+> 给标签 2 的粉丝群发一条文本消息："本周六上午 10 点直播，不见不散！"
+
+> 先用 mass_preview 给 OpenID 为 oXXXX 的用户预览这条消息，确认后再全员群发。
 
 ## 概念
 

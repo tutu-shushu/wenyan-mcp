@@ -12,6 +12,22 @@ import {
     listDrafts,
     publishDraft,
 } from "./freepublish.js";
+import {
+    MASS_DELETE_SCHEMA,
+    MASS_GET_STATUS_SCHEMA,
+    MASS_PREVIEW_SCHEMA,
+    MASS_SEND_ALL_SCHEMA,
+    MASS_SEND_SCHEMA,
+    MASS_SPEED_GET_SCHEMA,
+    MASS_SPEED_SET_SCHEMA,
+    massDelete,
+    massGetStatus,
+    massPreview,
+    massSend,
+    massSendAll,
+    massSpeedGet,
+    massSpeedSet,
+} from "./mass.js";
 import pkg from "../package.json" with { type: "json" };
 import { buildMcpResponse, globalStates } from "./utils.js";
 import { addTheme, listThemes, removeTheme } from "@wenyan-md/core/wrapper";
@@ -50,6 +66,13 @@ export function createServer(): Server {
                 PUBLISH_DRAFT_SCHEMA,
                 GET_PUBLISH_STATUS_SCHEMA,
                 DELETE_PUBLISH_SCHEMA,
+                MASS_SEND_ALL_SCHEMA,
+                MASS_SEND_SCHEMA,
+                MASS_PREVIEW_SCHEMA,
+                MASS_GET_STATUS_SCHEMA,
+                MASS_DELETE_SCHEMA,
+                MASS_SPEED_GET_SCHEMA,
+                MASS_SPEED_SET_SCHEMA,
             ],
         };
     });
@@ -128,6 +151,44 @@ export function createServer(): Server {
                 }
                 const appId = String(request.params.arguments?.app_id || "");
                 return await deletePublish(publishId, articleId, appId || undefined);
+            } else if (request.params.name === "mass_send_all") {
+                const args = request.params.arguments || {};
+                const appId = String(args.app_id || "");
+                return await massSendAll(args, appId || undefined);
+            } else if (request.params.name === "mass_send") {
+                const args = request.params.arguments || {};
+                const appId = String(args.app_id || "");
+                return await massSend(args, appId || undefined);
+            } else if (request.params.name === "mass_preview") {
+                const args = request.params.arguments || {};
+                const appId = String(args.app_id || "");
+                return await massPreview(args, appId || undefined);
+            } else if (request.params.name === "mass_get_status") {
+                const msgId = Number(request.params.arguments?.msg_id);
+                if (!msgId) {
+                    throw new Error("Missing required argument: msg_id");
+                }
+                const appId = String(request.params.arguments?.app_id || "");
+                return await massGetStatus(msgId, appId || undefined);
+            } else if (request.params.name === "mass_delete") {
+                const msgId = Number(request.params.arguments?.msg_id);
+                if (!msgId) {
+                    throw new Error("Missing required argument: msg_id");
+                }
+                const articleIdArg = request.params.arguments?.article_id;
+                const articleId = articleIdArg !== undefined && articleIdArg !== null ? Number(articleIdArg) : undefined;
+                const appId = String(request.params.arguments?.app_id || "");
+                return await massDelete(msgId, articleId, appId || undefined);
+            } else if (request.params.name === "mass_speed_get") {
+                const appId = String(request.params.arguments?.app_id || "");
+                return await massSpeedGet(appId || undefined);
+            } else if (request.params.name === "mass_speed_set") {
+                const speed = Number(request.params.arguments?.speed);
+                if (!Number.isInteger(speed) || speed < 0 || speed > 4) {
+                    throw new Error("Missing or invalid required argument: speed (integer 0-4)");
+                }
+                const appId = String(request.params.arguments?.app_id || "");
+                return await massSpeedSet(speed, appId || undefined);
             } else if (request.params.name === "remove_theme") {
                 const name = String(request.params.arguments?.name || "");
                 await removeTheme(name);

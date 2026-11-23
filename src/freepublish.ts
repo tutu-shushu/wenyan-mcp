@@ -1,4 +1,5 @@
-import { credentialStore, wechatPublisher } from "@wenyan-md/core/wrapper";
+import { wechatPublisher } from "@wenyan-md/core/wrapper";
+import { getAccessToken, postWechatApi } from "./wechatApi.js";
 import { buildMcpResponse } from "./utils.js";
 
 const FREEPUBLISH_SUBMIT_URL = "https://api.weixin.qq.com/cgi-bin/freepublish/submit";
@@ -6,57 +7,12 @@ const FREEPUBLISH_GET_URL = "https://api.weixin.qq.com/cgi-bin/freepublish/get";
 const FREEPUBLISH_BATCHGET_URL = "https://api.weixin.qq.com/cgi-bin/freepublish/batchget";
 const FREEPUBLISH_DELETE_URL = "https://api.weixin.qq.com/cgi-bin/freepublish/delete";
 
-const WECHAT_ERROR_HINTS: Record<number, string> = {
+const FREEPUBLISH_ERROR_HINTS: Record<number, string> = {
     48001: "公众号未获得该接口权限。freepublish（发布能力）仅对已认证的订阅号/服务号（含企业认证）开放。",
     40007: "media_id 非法，请确认草稿箱中存在该 media_id。",
     53418: "正在发布中，请稍后再试或查询发布状态。",
     53417: "该草稿不在发布范围内（可能是图文类型不支持或账号未认证）。",
 };
-
-function assertWechatSuccess(data: any) {
-    if ("errcode" in data && data.errcode !== 0) {
-        const hint = WECHAT_ERROR_HINTS[data.errcode];
-        throw new Error(hint ? `${data.errcode}: ${hint} (${data.errmsg})` : `${data.errcode}: ${data.errmsg}`);
-    }
-}
-
-/**
- * Resolve appId/appSecret from arguments, env vars, or the wenyan config store.
- */
-async function resolveCredential(appId?: string) {
-    const envAppId = process.env.WECHAT_APP_ID;
-    const envAppSecret = process.env.WECHAT_APP_SECRET;
-    if (envAppId && envAppSecret && (envAppId === appId || !appId)) {
-        return { appId: envAppId, appSecret: envAppSecret };
-    }
-    if (!appId) {
-        throw new Error("未提供 AppID：请通过环境变量 WECHAT_APP_ID / WECHAT_APP_SECRET 指定。");
-    }
-    const credential = await credentialStore.getWechatCredential(appId);
-    if (credential?.appId && credential?.appSecret) {
-        return { appId: credential.appId, appSecret: credential.appSecret };
-    }
-    throw new Error(`未能找到 AppID 为 "${appId}" 的公众号凭据，请检查配置文件。`);
-}
-
-async function getAccessToken(appId?: string) {
-    const { appId: finalAppId, appSecret } = await resolveCredential(appId);
-    return await wechatPublisher.getAccessTokenWithCache(finalAppId, appSecret);
-}
-
-async function postWechatApi(url: string, accessToken: string, body: Record<string, unknown>) {
-    const res = await fetch(`${url}?access_token=${accessToken}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-    });
-    if (!res.ok) {
-        throw new Error(`微信接口请求失败: ${res.status} ${await res.text()}`);
-    }
-    const data = await res.json();
-    assertWechatSuccess(data);
-    return data;
-}
 
 export const LIST_DRAFTS_SCHEMA = {
     name: "list_drafts",
@@ -153,7 +109,7 @@ export async function listDrafts(offset: number, count: number, appId?: string) 
 
 export async function publishDraft(mediaId: string, appId?: string) {
     const accessToken = await getAccessToken(appId);
-    const data = await postWechatApi(FREEPUBLISH_SUBMIT_URL, accessToken, { media_id: mediaId });
+    const data = await postWechatApi(FREEPUBLISH_SUBMIT_URL, accessToken, { media_id: mediaId }, FREEPUBLISH_ERROR_HINTS);
     return buildMcpResponse(
         `发布任务已提交成功。publish_id: ${data.publish_id}。可使用 get_publish_status 工具查询发布进度与最终文章链接。`,
     );
@@ -161,18 +117,18 @@ export async function publishDraft(mediaId: string, appId?: string) {
 
 export async function getPublishStatus(publishId: string, appId?: string) {
     const accessToken = await getAccessToken(appId);
-    const data = await postWechatApi(FREEPUBLISH_GET_URL, accessToken, { publish_id: publishId });
+    const data = await postWechatApi(FREEPUBLISH_GET_URL, accessToken, { publish_id: publishId }, FREEPUBLISH_ERROR_HINTS);
     return buildMcpResponse(JSON.stringify(data, null, 2));
 }
 
 export async function deletePublish(publishId: string, articleId: string, appId?: string) {
     const accessToken = await getAccessToken(appId);
-    await postWechatApi(FREEPUBLISH_DELETE_URL, accessToken, { publish_id: publishId, article_id: articleId });
+    await postWechatApi(FREEPUBLISH_DELETE_URL, accessToken, { publish_id: publishId, article_id: articleId }, FREEPUBLISH_ERROR_HINTS);
     return buildMcpResponse("已发布文章删除成功。");
 }
 
 export async function listPublishStatus(offset: number, count: number, appId?: string) {
     const accessToken = await getAccessToken(appId);
-    const data = await postWechatApi(FREEPUBLISH_BATCHGET_URL, accessToken, { offset, count });
+    const data = await postWechatApi(FREEPUBLISH_BATCHGET_URL, accessToken, { offset, count }, FREEPUBLISH_ERROR_HINTS);
     return buildMcpResponse(JSON.stringify(data, null, 2));
 }
